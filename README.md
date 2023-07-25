@@ -68,9 +68,9 @@ top-installed apps.
 This project is a collaborative effort, and we would like to acknowledge
 the contributions of the following team members:
 
-Rabiya Fatima
-Tavnit Sandhu
-Su Ting Chin
+Rabiya Fatima\
+Tavnit Sandhu\
+Su Ting Chin\
 Deeksha Vashishtha
 
 
