@@ -2,8 +2,6 @@
 App Analysis and Insights - Unveiling the App Ecosystem
 \*\*Google Play Store Apps Data Exploration Project\*\*\
 
-[Google Play Store Apps\]
-
 Welcome to the Google Play Store Apps Data Exploration Project
 repository! In this project, we analyze and explore a dataset containing
 information on more than 10,000 mobile applications available on the
