@@ -1,0 +1,131 @@
+---
+title: "Data Exploration - Final"
+author: "Rabiya Fatima"
+date: "2023-03-17"
+output: ioslides_presentation
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(stringr)
+library(tidyverse) 
+library(vtable)
+library(data.table)
+library(plotly)
+library(shiny)
+```
+
+## Shiny Presentation
+
+This R Markdown presentation is made interactive using Shiny. The viewers of the presentation can change the assumptions underlying what's presented and see the results immediately.
+
+To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html)
+
+## Interactive Plot
+
+```{r eruptions}
+gps_main <- read.csv("gps.csv")
+gps_l <- copy(gps_main)
+
+top_categories <- gps_l %>% 
+  group_by(Category) %>% 
+  summarize(total_installs = sum(as.numeric(gsub("[+,]", "", Installs)))) %>% 
+  arrange(desc(total_installs)) %>% 
+  head(10) %>% 
+  pull(Category)
+
+# Filter the dataset to only include the top 10 installed categories
+filtered_gps_l <- gps_l %>% 
+  filter(Category %in% top_categories)
+
+# Create a new variable to indicate whether the app is free or paid
+filtered_gps_l$Type <- ifelse(filtered_gps_l$Type == "Free", "Free", "Paid")
+
+# Create a table of counts for free and paid app ratings in the top 10 categories
+rating_counts <- filtered_gps_l %>% 
+  group_by(Type, Rating) %>% 
+  summarize(count = n()) %>% 
+  ungroup()
+
+#Graph 2 - boxplot
+gps_paid <- gps_main %>% filter(Type == 'Paid')
+
+gps_b <- gps_paid %>% filter(Category %in% c("VIDEO_PLAYERS","NEWS_AND_MAGAZINES","HEALTH_AND_FITNESS","PHOTOGRAPHY","GAME"))
+```
+
+## Bullets
+
+-   Bullet 1
+-   Bullet 2
+-   Bullet 3
+
+## R Output
+
+```{r}
+
+# Create the line graph with hover over labels
+p <- ggplot(rating_counts, aes(x = Rating, y = count, color = Type, group = Type, text = paste("Rating: ", Rating, "<br>Count: ", count))) +
+  geom_line() +
+  scale_x_continuous(limits = c(1, 5), breaks = seq(1, 5)) +
+  scale_y_continuous(limits = c(0, max(rating_counts$count)), breaks = seq(0, 600, 100)) +
+  labs(title = "Ratings of Free vs Paid Apps: Which One Reigns Supreme on Google Play Store?",
+       x = "Ratings",
+       y = "Count of Ratings",
+       color = "App Type") +
+  scale_color_manual(values = c("deepskyblue4", "tan1")) + # Add color scale
+  theme_bw() + # Set theme to theme_bw()
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_line(color = "gray89"), # Reduce opacity of major grid lines
+        panel.grid.minor = element_line(color = "gray89", linetype = "dashed"), # Reduce opacity of minor grid lines
+        plot.title = element_text(hjust = 5, face = "bold", size = 11),
+        axis.text.y = element_text(angle = 0, hjust = 1),
+        panel.background = element_rect(fill = "white"),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 11),
+        text = element_text(family = "Palatino",size = 10, color = "grey40"),
+        legend.text = element_text(size = 8, color = "grey40", face = "bold"), 
+        legend.title = element_text(size = 10, color = "grey40", face = "bold"),
+        legend.background = element_rect(color = "gray40", fill = "white"), # Add gray box to legend
+        legend.box = "solid", # Add a box border to legend
+        legend.position = "bottom") # Justify legend to the top-left corner
+
+# Convert the ggplot object to a plotly object
+ggplotly(p, tooltip = c("text")) 
+
+```
+
+Boxplot
+
+```{r}
+
+ggplot(gps_b, aes(x=Category, y=Price)) + 
+   labs(title = 'Is Your App Priced Right? Analysis of App Prices in the Top Category') + 
+  theme(panel.grid.major = element_line(color = "gray89"), # Reduce opacity of major grid lines
+        panel.grid.minor = element_line(color = "gray89", linetype = "dashed"), 
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(hjust = 0.1, face = "bold", size = 11),
+        axis.text = element_text(size =7),
+        axis.title = element_text(size = 12),
+        text = element_text(family = "Palatino",size = 10, color = "deepskyblue4")) +
+    geom_boxplot(
+        
+        # custom boxes
+        color="tan1",
+        fill="tan1",
+        alpha=0.5,
+        
+        # Notch?
+        notch=FALSE,
+        notchwidth = 0.8,
+        
+        # custom outliers
+        outlier.colour="deepskyblue4",
+        outlier.fill="deepskyblue4",
+        outlier.size=3
+    )+
+  scale_y_continuous(labels = function(x) paste0(x,"$")) 
+```

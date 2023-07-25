@@ -1,0 +1,209 @@
+---
+title: "Data Exploration Project"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(flexdashboard)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(stringr)
+library(tidyverse) 
+library(vtable)
+library(data.table)
+library(plotly)
+library(shiny)
+library(shinydashboard)
+library(ggiraph)
+
+gps_main <- read.csv("gps.csv")
+gps_l <- copy(gps_main)
+gps_reviews <- read.csv("googleplaystorereviews.csv")
+gps_merged <- merge(gps_main,gps_reviews , by = "App", all = TRUE)
+gps <- copy(gps_main)
+
+top_categories <- gps_l %>% 
+  group_by(Category) %>% 
+  summarize(total_installs = sum(as.numeric(gsub("[+,]", "", Installs)))) %>% 
+  arrange(desc(total_installs)) %>% 
+  head(10) %>% 
+  pull(Category)
+
+# Filter the dataset to only include the top 10 installed categories
+filtered_gps_l <- gps_l %>% 
+  filter(Category %in% top_categories)
+
+# Create a new variable to indicate whether the app is free or paid
+filtered_gps_l$Type <- ifelse(filtered_gps_l$Type == "Free", "Free", "Paid")
+
+# Create a table of counts for free and paid app ratings in the top 10 categories
+rating_counts <- filtered_gps_l %>% 
+  group_by(Type, Rating) %>% 
+  summarize(count = n()) %>% 
+  ungroup()
+
+#Graph 2 - boxplot
+gps_paid <- gps_main %>% filter(Type == 'Paid')
+
+gps_b <- gps_paid %>% filter(Category %in% c("VIDEO_PLAYERS","NEWS_AND_MAGAZINES","HEALTH_AND_FITNESS","PHOTOGRAPHY","GAME"))
+
+#graph 4 - heatmap
+
+gps_merged_1 <- gps_merged %>% drop_na(Sentiment)
+gps_merged_1 <-   gps_merged_1 %>% filter(Sentiment != 'nan')
+  
+gps_test <- gps_paid %>% filter(Category %in% c("COMMUNICATION","ENTERTAINMENT","DATING","EDUCATION","BUSINESS"))
+
+gps_test2 <- gps_paid %>% filter(Category %in% c("COMMUNICATION","NEWS_AND_MAGAZINES","SOCIAL","PHOTOGRAPHY","GAME"))
+
+gps_merged_2 <- gps_merged_1 %>% filter(Category %in% c("VIDEO_PLAYERS","NEWS_AND_MAGAZINES","HEALTH","PHOTOGRAPHY","GAME","HEALTH_AND_FITNESS"))
+gps_merged_2 <- gps_merged_2 %>% filter(Sentiment != 'Neutral')
+data <- gps_merged_2 %>% group_by(Category, Sentiment) %>% summarise(vr=mean(Sentiment_Polarity))
+
+#graph 3 - Barplot
+
+# Group the data by Category and calculate the mean rating and total installs
+gps_grouped <- gps_main %>% group_by(Category) %>%
+  summarize(Mean_Rating = mean(Rating, na.rm = TRUE), Installs = sum(Installs))
+
+# Sort the data by the number of installs in descending order and select the top 10 categories
+top_10 <- head(gps_grouped[order(-gps_grouped$Installs),], 10)
+
+# Assign ranks to the top 10 categories in descending order of installs
+top_10$Rank <- 1:10
+
+# Define a function to format numbers with unit prefixes
+unit_format_custom <- function(x) {
+  ifelse(x >= 1e9, paste0(round(x/1e9, 1), "B"),
+         ifelse(x >= 1e6, paste0(round(x/1e6, 1), "M"),
+                ifelse(x >= 1e3, paste0(round(x/1e3, 1), "k"), round(x, 1))))
+}
+```
+
+## #row1
+
+**Ratings of Free vs Paid Apps**
+
+```{r}
+p <- ggplot(rating_counts, aes(x = Rating, y = count, color = Type, group = Type, text = paste("Rating: ", Rating, "<br>Count: ", count))) +
+  geom_line() +
+  scale_x_continuous(limits = c(1, 5), breaks = seq(1, 5)) +
+  scale_y_continuous(limits = c(0, max(rating_counts$count)), breaks = seq(0, 600, 100)) +
+  labs(title = "Ratings of Free vs Paid Apps: Which One Reigns Supreme on Google Play Store?",
+       x = "Ratings",
+       y = "Count of Ratings",
+       color = "App Type") +
+  scale_color_manual(values = c("deepskyblue4", "tan1")) + # Add color scale
+  theme_bw() + # Set theme to theme_bw()
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_line(color = "gray89"), # Reduce opacity of major grid lines
+        panel.grid.minor = element_line(color = "gray89", linetype = "dashed"), # Reduce opacity of minor grid lines
+        plot.title = element_text(hjust = 5, face = "bold", size = 11),
+        axis.text.y = element_text(angle = 0, hjust = 1),
+        panel.background = element_rect(fill = "white"),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 11),
+        text = element_text(family = "Palatino",size = 10, color = "grey40"),
+        legend.text = element_text(size = 8, color = "grey40", face = "bold"), 
+        legend.title = element_text(size = 10, color = "grey40", face = "bold"),
+        legend.background = element_rect(color = "gray40", fill = "white"), # Add gray box to legend
+        legend.box = "solid", # Add a box border to legend
+        legend.position = "bottom") # Justify legend to the top-left corner
+
+# Convert the ggplot object to a plotly object
+ggplotly(p, tooltip = c("text")) 
+
+```
+
+# **Top 10 Categories Rank by Installs and Mean Rating**
+
+```{r}
+
+gg <- ggplot(top_10, aes(x = reorder(Category, -Rank), y = Rank, fill = Category)) +
+  geom_bar_interactive(aes(tooltip = paste("Total Installs: ", unit_format_custom(Installs)),hover_fill = "tan1"), stat = "identity") +
+  labs(title = "How the Top 10 Categories Rank by Installs and Mean Rating", x = "Category", y = "Rank") +
+  geom_text(aes(label = round(Mean_Rating, 2), y = Rank + 0.5), size = 3) +
+  scale_y_continuous(breaks = seq(1, 10, 1)) +
+  guides(fill = FALSE) +
+  geom_col(fill = "deepskyblue4", color = "tan1")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.y = element_text(hjust = 0),
+        panel.border = element_blank(),
+        panel.grid.major = element_line(color = "gray89"), 
+        panel.grid.minor = element_line(color = "gray89", linetype = "dashed"),
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(hjust = 0.1, face = "bold", size = 12),
+        axis.title = element_text(size = 11),
+        text = element_text(family = "Palatino",size = 10, color = "grey40", face = "bold"))
+        
+ggiraph(code = {print(gg)}, hover_css = "fill-opacity:.8;")
+
+
+
+```
+
+# Analysis of Positive and Negative Reviews
+
+```{r}
+
+p <- ggplot(data, aes(Category, Sentiment, fill = vr, text = paste("Polarity Score: ", round(vr, 2)))) +
+  geom_tile() +
+  scale_fill_gradient(low = "deepskyblue4", high = "paleturquoise") +
+  labs(title = "Understanding User Sentiments: Analysis of Positive and Negative Reviews on Top Categories", x = "Category", y = "Sentiment", fill = "Polarity Score") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        axis.text.y = element_text(hjust = 0),
+        panel.border = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(hjust = 0, face = "bold", size = 10),
+        axis.title = element_text(size = 11),
+        text = element_text(family = "Palatino",size = 10, color = "grey40", face = "bold"),
+        legend.text = element_text(size = 8, color = "grey40", face = "bold"), 
+        legend.title = element_text(size = 10, color = "grey40", face = "bold"),
+        legend.background = element_rect(color = "gray40", fill = "white"),
+        legend.box = "solid")
+ggplotly(p, tooltip = c("text"))
+
+
+```
+
+# **Analysis of App Prices in the Top Category**
+
+```{r}
+
+ggplot(gps_b, aes(x=Category, y=Price)) + 
+   labs(title = 'Is Your App Priced Right? Analysis of App Prices in the Top Category') + 
+  theme(panel.grid.major = element_line(color = "gray89"), # Reduce opacity of major grid lines
+        panel.grid.minor = element_line(color = "gray89", linetype = "dashed"), 
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(hjust = 0.1, face = "bold", size = 11),
+        axis.text = element_text(size =7),
+        axis.title = element_text(size = 12),
+        text = element_text(family = "Palatino",size = 10, color = "deepskyblue4")) +
+    geom_boxplot(
+        
+        # custom boxes
+        color="tan1",
+        fill="tan1",
+        alpha=0.5,
+        
+        # Notch?
+        notch=FALSE,
+        notchwidth = 0.8,
+        
+        # custom outliers
+        outlier.colour="deepskyblue4",
+        outlier.fill="deepskyblue4",
+        outlier.size=3
+    )+
+  scale_y_continuous(labels = function(x) paste0(x,"$"))
+
+```
+
+# Analysis of the average app size of Free and Paid Apps
+
+![](tree.jpeg)
