@@ -1,6 +1,7 @@
 ## **Website Links:** 
-[Visualization Dashboard](https://rabiyafatima94.github.io/Google-Play-Store-App/)
+[Memo](https://rabiyafatima94.github.io/Google-Play-Store-App/)
 
+[Visualization Dashboard](https://rabiyafatima94.github.io/Google-Play-Store-App/dashboard.html)
 
 # Google-Play-Store-App
 App Analysis and Insights - Unveiling the App Ecosystem
